@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý thu chi</title>
+    <style>
+        table { border-collapse: collapse; width: 80%; margin: 20px auto; font-family: Arial, sans-serif; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background-color: #4CAF50; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        tr:nth-child(odd) { background-color: #ffffff; }
+        tr:hover { background-color: #ddd; }
+        .total { font-weight: bold; text-align: right; margin-right: 10%; font-size: 18px; }
+        button { padding: 5px 10px; cursor: pointer; background-color: #008CBA; color: white; border: none; border-radius: 4px; }
+        button:hover { background-color: #005f73; }
+        input { margin: 5px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        h2 { text-align: center; color: #333; }
+    </style>
+</head>
+<body>
+    <h2>Quản lý thu chi</h2>
+    <div style="text-align: center;">
+        <input type="date" id="date">
+        <input type="text" id="content" placeholder="Nội dung">
+        <input type="number" id="income" placeholder="Thu tiền" min="0">
+        <input type="number" id="expense" placeholder="Chi tiền" min="0">
+        <button onclick="addItem()">Thêm</button>
+    </div>
+
+    <table id="shoppingTable">
+        <thead>
+            <tr>
+                <th>Ngày</th>
+                <th>Nội dung</th>
+                <th>Thu tiền</th>
+                <th>Chi tiền</th>
+                <th>Chỉnh sửa</th>
+                <th>Xóa</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <p class="total">Tổng thu: <span id="totalIncome">0</span> VNĐ | Tổng chi: <span id="totalExpense">0</span> VNĐ | Cân đối: <span id="balance">0</span> VNĐ</p>
+    <div style="text-align: center;">
+        <button onclick="downloadExcel()">Tải dữ liệu về Excel</button>
+        <button onclick="openSummary()">Tổng kết</button>
+    </div>
+
+    <script>
+        const password = "12345";
+        let items = [];
+
+        function loadData() {
+            const storedItems = localStorage.getItem('shoppingItems');
+            items = storedItems ? JSON.parse(storedItems) : [];
+            renderTable();
+            calculateTotals();
+        }
+
+        window.onload = loadData;
+
+        function addItem() {
+            const date = document.getElementById('date').value;
+            const content = document.getElementById('content').value.trim();
+            const income = parseFloat(document.getElementById('income').value) || 0;
+            const expense = parseFloat(document.getElementById('expense').value) || 0;
+
+            // Debug: In dữ liệu ra console để kiểm tra
+            console.log("Ngày:", date);
+            console.log("Nội dung:", content);
+            console.log("Thu tiền:", income);
+            console.log("Chi tiền:", expense);
+
+            // Kiểm tra dữ liệu đầu vào
+            if (!date || date === "") {
+                alert("Vui lòng chọn ngày!");
+                return;
+            }
+            if (!content || content === "") {
+                alert("Vui lòng nhập nội dung!");
+                return;
+            }
+            if (income <= 0 && expense <= 0) {
+                alert("Vui lòng nhập số tiền lớn hơn 0 cho ít nhất một trong thu tiền hoặc chi tiền!");
+                return;
+            }
+
+            // Thêm mục mới
+            const newItem = { date, content, income, expense };
+            items.push(newItem);
+            console.log("Đã thêm mục:", newItem); // Debug
+            saveAndUpdate();
+            clearInputs();
+        }
+
+        function deleteItem(index) {
+            const userPassword = prompt("Nhập mật khẩu để xóa:");
+            if (userPassword === password) {
+                items.splice(index, 1);
+                saveAndUpdate();
+            } else {
+                alert("Mật khẩu sai!");
+            }
+        }
+
+        function editItem(index) {
+            const userPassword = prompt("Nhập mật khẩu để chỉnh sửa:");
+            if (userPassword === password) {
+                const newDate = prompt("Nhập ngày mới:", items[index].date);
+                const newContent = prompt("Nhập nội dung mới:", items[index].content);
+                const newIncome = parseFloat(prompt("Nhập thu tiền mới:", items[index].income)) || 0;
+                const newExpense = parseFloat(prompt("Nhập chi tiền mới:", items[index].expense)) || 0;
+
+                if (newDate && newContent) {
+                    items[index] = { date: newDate, content: newContent, income: newIncome, expense: newExpense };
+                    saveAndUpdate();
+                } else {
+                    alert("Thông tin không hợp lệ!");
+                }
+            } else {
+                alert("Mật khẩu sai!");
+            }
+        }
+
+        function renderTable() {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            items.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.date}</td>
+                    <td>${item.content}</td>
+                    <td>${item.income.toLocaleString()} VNĐ</td>
+                    <td>${item.expense.toLocaleString()} VNĐ</td>
+                    <td><button onclick="editItem(${index})">Chỉnh sửa</button></td>
+                    <td><button onclick="deleteItem(${index})">Xóa</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function calculateTotals() {
+            const totalIncome = items.reduce((sum, item) => sum + item.income, 0);
+            const totalExpense = items.reduce((sum, item) => sum + item.expense, 0);
+            const balance = totalIncome - totalExpense;
+
+            document.getElementById('totalIncome').textContent = totalIncome.toLocaleString();
+            document.getElementById('totalExpense').textContent = totalExpense.toLocaleString();
+            document.getElementById('balance').textContent = balance.toLocaleString();
+        }
+
+        function saveAndUpdate() {
+            localStorage.setItem('shoppingItems', JSON.stringify(items));
+            renderTable();
+            calculateTotals();
+        }
+
+        function clearInputs() {
+            document.getElementById('date').value = '';
+            document.getElementById('content').value = '';
+            document.getElementById('income').value = '';
+            document.getElementById('expense').value = '';
+        }
+
+        function downloadExcel() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Ngày,Nội dung,Thu tiền,Chi tiền\n";
+            items.forEach(item => {
+                const row = `${item.date},${item.content},${item.income},${item.expense}`;
+                csvContent += row + "\n";
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "thu_chi_data.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function openSummary() {
+            const totalIncome = items.reduce((sum, item) => sum + item.income, 0);
+            const totalExpense = items.reduce((sum, item) => sum + item.expense, 0);
+            const balance = totalIncome - totalExpense;
+
+            const summaryWindow = window.open('', 'Tổng kết', 'width=800,height=600');
+            summaryWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="vi">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Tổng kết thu chi</title>
+                    <style>
+                        table { border-collapse: collapse; width: 80%; margin: 20px auto; font-family: Arial, sans-serif; }
+                        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+                        th { background-color: #4CAF50; color: white; }
+                        tr:nth-child(even) { background-color: #f2f2f2; }
+                        tr:nth-child(odd) { background-color: #ffffff; }
+                        .total { font-weight: bold; text-align: right; margin-right: 10%; font-size: 18px; }
+                        h2 { text-align: center; color: #333; }
+                    </style>
+                </head>
+                <body>
+                    <h2>Tổng kết thu chi</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ngày</th>
+                                <th>Nội dung</th>
+                                <th>Thu tiền</th>
+                                <th>Chi tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(item => `
+                                <tr>
+                                    <td>${item.date}</td>
+                                    <td>${item.content}</td>
+                                    <td>${item.income.toLocaleString()} VNĐ</td>
+                                    <td>${item.expense.toLocaleString()} VNĐ</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <p class="total">Tổng thu: ${totalIncome.toLocaleString()} VNĐ | Tổng chi: ${totalExpense.toLocaleString()} VNĐ | Cân đối: ${balance.toLocaleString()} VNĐ</p>
+                </body>
+                </html>
+            `);
+            summaryWindow.document.close();
+        }
+    </script>
+</body>
+</html>
