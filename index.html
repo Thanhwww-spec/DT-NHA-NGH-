@@ -1,412 +1,85 @@
-<!doctype html>
-<html lang="vi">
+<!DOCTYPE html><html lang="vi">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Quản Lý Mony — Firestore Sync</title>
-<style>
-:root{ --c1:#8fd3f4; --c2:#84fab0; --accent:#00c6ff; }
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui,Arial,sans-serif;color:#fff;overflow-x:hidden;}
-#bg{position:fixed;inset:0;z-index:-1;background:linear-gradient(135deg,var(--c1),var(--c2));}
-
-/* Login centered */
-#loginModal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:20;}
-.login-box{width:92%;max-width:360px;padding:22px;border-radius:14px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(12px);text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.45)}
-.login-box h2{margin:0 0 8px}
-.login-input,.login-btn{width:100%;padding:12px;border-radius:10px;border:0;font-size:15px}
-.login-input{background:rgba(255,255,255,.95);color:#111;margin-bottom:10px}
-.login-btn{background:linear-gradient(145deg,var(--accent),#55e0ff);color:#fff;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.25)}
-.login-btn:hover{transform:translateY(-2px)}
-
-.container{max-width:980px;margin:0 auto;padding:12px;display:none}
-h1{text-align:center;margin:14px 0 8px;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.25)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:20px;font-weight:700;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.3)}
-.badge.online{background:rgba(0,200,0,.18);color:#0a0}
-.badge.offline{background:rgba(255,140,0,.18);color:#b35d00}
-.badge.sync{background:rgba(0,102,255,.18);color:#0046a8}
-
-.card{background:rgba(255,255,255,.12);padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 24px rgba(0,0,0,.2)}
-.grid{display:grid;grid-template-columns:1fr;gap:8px}
-input,button{padding:10px;border-radius:8px;border:0;font-size:14px}
-input{background:rgba(255,255,255,.95);color:#111}
-button{background:linear-gradient(145deg,var(--accent),#55e0ff);color:#fff;font-weight:700;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,.25)}
-table{width:100%;border-collapse:collapse;background:#fff;color:#111;border-radius:10px;overflow:hidden}
-th,td{border:1px solid #e7e7e7;padding:8px;text-align:center}
-th{background:linear-gradient(145deg,var(--accent),#5fe1ff);color:#fff}
-tr:nth-child(even){background:#fafafa}
-.action-btn{border:0;background:none;cursor:pointer;font-size:18px;padding:4px}
-
-@media(min-width:560px){
-  .grid{grid-template-columns:repeat(5,1fr)}
-  .grid>*:nth-child(1){grid-column:span 1}
-  .grid>*:nth-child(2){grid-column:span 2}
-  .grid>*:nth-child(3){grid-column:span 1}
-  .grid>*:nth-child(4){grid-column:span 1}
-  .grid>*:nth-child(5){grid-column:span 5}
-}
-.small{font-size:13px;opacity:.9}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP32 Web Flasher (Direct)</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@9.0.3/dist/web/install-button.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #eee; margin: 0; padding: 20px; }
+    h1 { color: #8b5cf6; }
+    .card { background: #1b1b2a; padding: 20px; border-radius: 12px; max-width: 600px; margin: auto; }
+    input, select, button { margin: 8px 0; padding: 10px; border-radius: 8px; border: none; }
+    button { background: #8b5cf6; color: white; cursor: pointer; font-weight: bold; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #status { margin-top: 10px; font-size: 0.9rem; color: #aaa; }
+  </style>
 </head>
 <body>
-<canvas id="bg"></canvas>
-
-<!-- LOGIN -->
-<div id="loginModal">
-  <div class="login-box">
-    <h2>🔐 Đăng nhập</h2>
-    <div class="small" style="margin-bottom:8px">Nhập mật khẩu để truy cập</div>
-    <input id="loginPassword" class="login-input" type="password" placeholder="Mật khẩu"/>
-    <button id="btnLogin" class="login-btn">Đăng nhập</button>
-    <div class="small" style="margin-top:10px;color:#eee">Mẹo: mật khẩu mặc định <b>123456</b></div>
-  </div>
-</div>
-
-<!-- APP -->
-<div class="container" id="app">
-  <h1>📒 Quản Lý Mony</h1>
-  <div class="row" style="justify-content:space-between;margin-bottom:10px">
-    <div id="netBadge" class="badge">● Khởi tạo...</div>
-    <div id="syncBadge" class="badge" style="display:none">⏳ Đang đồng bộ…</div>
-  </div>
-
-  <div class="card" style="margin-bottom:12px">
-    <div class="grid">
-      <input id="date" type="date"/>
-      <input id="name" placeholder="Tên người mượn"/>
-      <input id="amount" type="number" placeholder="Số tiền"/>
-      <input id="interest" type="number" placeholder="Tiền lãi"/>
-      <button id="btnAdd">➕ Thêm</button>
-    </div>
-  </div>
-
-  <h3 style="margin:6px 0">Danh sách</h3>
   <div class="card">
-    <table>
-      <thead><tr><th>Ngày</th><th>Tên</th><th>Số tiền</th><th>Tiền lãi</th><th>Sửa</th><th>Xóa</th></tr></thead>
-      <tbody id="list"><tr><td colspan="6">Đang tải...</td></tr></tbody>
-    </table>
-  </div>
+    <h1>ESP32 Web Flasher</h1>
+    <p>Chọn file <code>.bin</code> từ máy và flash trực tiếp qua USB (Chrome/Edge).</p><label>Chọn file .bin</label>
+<input id="binFile" type="file" accept=".bin" />
+
+<label>Chọn loại chip</label>
+<select id="chip">
+  <option value="ESP32" selected>ESP32</option>
+  <option value="ESP32-S2">ESP32-S2</option>
+  <option value="ESP32-S3">ESP32-S3</option>
+  <option value="ESP32-C3">ESP32-C3</option>
+  <option value="ESP8266">ESP8266</option>
+</select>
+
+<label>Offset (mặc định 0x10000)</label>
+<input id="offset" type="text" value="0x10000" />
+
+<div style="margin-top:12px;">
+  <esp-web-install-button id="installBtn" install-unsupported>Install</esp-web-install-button>
 </div>
 
-<script type="module">
-/* ================== FIRESTORE SETUP ================== */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, doc, setDoc, updateDoc, deleteDoc,
-  onSnapshot, query, orderBy, enableIndexedDbPersistence, getDocs
-} from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+<div id="status">Chưa chọn file.</div>
 
-/* Thông tin Firebase (project của bạn) */
-const firebaseConfig = {
-  apiKey: "AIzaSyAJnH6cnUcGKh62gRvxCeGf9PMuEq9IP6Y",
-  authDomain: "maylanh-458b5.firebaseapp.com",
-  projectId: "maylanh-458b5",
-  storageBucket: "maylanh-458b5.appspot.com",
-  messagingSenderId: "150037681682",
-  appId: "1:150037681682:web:4a283f58a8b6b1348b413b"
-};
+  </div>  <script>
+    let manifestURL = null;
+    const fileInput = document.getElementById('binFile');
+    const installBtn = document.getElementById('installBtn');
+    const statusEl = document.getElementById('status');
 
-let db = null, colRef = null;
-try{
-  initializeApp(firebaseConfig);
-  db = getFirestore();
-  // bật persistence offline của Firestore
-  enableIndexedDbPersistence(db).catch((e)=> console.warn("Persistence:", e && e.code));
-  // collection name (kỹ thuật): muon_tien
-  colRef = collection(db, "muon_tien");
-}catch(e){
-  console.warn("Firestore init error:", e.message);
-}
-
-/* ================ CONSTANTS & LOCALSTORE KEYS ================ */
-const PASSWORD = "8888";
-const LS_KEY = "fs_loan_records_v1";
-const OPS_KEY = "fs_loan_ops_v1"; // queued ops when offline
-const MAP_KEY = "fs_map_v1"; // localId -> serverId mapping
-
-const uidLocal = ()=> "local_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-const now = ()=> Date.now();
-
-/* LocalStorage helpers */
-const readLocal = ()=> { try{ return JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch{ return []; } };
-const writeLocal = (arr)=> localStorage.setItem(LS_KEY, JSON.stringify(arr));
-const readOps = ()=> { try{ return JSON.parse(localStorage.getItem(OPS_KEY)) || []; }catch{ return []; } };
-const writeOps = (arr)=> localStorage.setItem(OPS_KEY, JSON.stringify(arr));
-const readMap = ()=> { try{ return JSON.parse(localStorage.getItem(MAP_KEY)) || {}; }catch{ return {}; } };
-const writeMap = (m)=> localStorage.setItem(MAP_KEY, JSON.stringify(m));
-
-/* ================ UI refs ================ */
-const loginModal = document.getElementById("loginModal");
-const appEl = document.getElementById("app");
-const btnLogin = document.getElementById("btnLogin");
-const loginPassword = document.getElementById("loginPassword");
-const netBadge = document.getElementById("netBadge");
-const syncBadge = document.getElementById("syncBadge");
-const listEl = document.getElementById("list");
-
-/* ================ date utils ================ */
-const toDisplay = iso => { if(!iso) return ""; const [y,m,d] = iso.split("-"); return `${d}-${m}-${y}`; };
-const toIso = disp => { const [d,m,y] = disp.split("-"); return `${y}-${m}-${d}`; };
-
-/* ================ network status UI ================ */
-function updateNetBadge(){
-  if(navigator.onLine){
-    netBadge.textContent = "✓ Online (Firestore)";
-    netBadge.className = "badge online";
-  } else {
-    netBadge.textContent = "● Offline – lưu cục bộ";
-    netBadge.className = "badge offline";
-  }
-}
-window.addEventListener("online", ()=>{ updateNetBadge(); attachRealtime(); flushQueue(); });
-window.addEventListener("offline", ()=>{ updateNetBadge(); detachRealtime(); });
-
-/* ================ render ================ */
-function renderFrom(arr){
-  const data = (arr||[]).slice().sort((a,b)=> (b.dateIso||"").localeCompare(a.dateIso||""));
-  if(!data.length){ listEl.innerHTML = `<tr><td colspan="6">Chưa có dữ liệu</td></tr>`; return; }
-  listEl.innerHTML = data.map(x=>`
-    <tr>
-      <td>${x.date || toDisplay(x.dateIso)}</td>
-      <td>${x.name||""}</td>
-      <td>${Number(x.amount||0).toLocaleString()} đ</td>
-      <td>${Number(x.interest||0).toLocaleString()} đ</td>
-      <td><button class="action-btn" onclick="editLoan('${x.id}')">✏️</button></td>
-      <td><button class="action-btn" onclick="deleteLoan('${x.id}')">🗑️</button></td>
-    </tr>
-  `).join("");
-}
-function renderLocal(){ renderFrom(readLocal()); }
-
-/* ================ queue operations ================ */
-function enqueue(op){ const q = readOps(); q.push(op); writeOps(q); updateSyncBadge(); }
-function dequeue(){ const q = readOps(); q.shift(); writeOps(q); updateSyncBadge(); }
-function updateSyncBadge(){ const has = readOps().length>0; syncBadge.style.display = has ? "inline-flex" : "none"; }
-
-/* ================ mapping localId -> serverId ================ */
-function setMap(localId, serverId){ const m = readMap(); m[localId] = serverId; writeMap(m); }
-function getMap(localId){ return readMap()[localId] || null; }
-function replaceLocalIds(mapping){
-  // mapping: { localId: serverId }
-  let arr = readLocal();
-  let changed=false;
-  arr = arr.map(r=>{
-    if(mapping[r.id]){ changed=true; return {...r, id: mapping[r.id]}; }
-    return r;
-  });
-  if(changed) writeLocal(arr);
-}
-
-/* ================ Firestore helpers ================ */
-async function addDocServer(rec){
-  // use addDoc to get generated id
-  const ref = await addDoc(collection(db, "muon_tien"), rec);
-  return ref.id;
-}
-async function setDocServer(id, rec){
-  await setDoc(doc(db, "muon_tien", id), {...rec, id});
-}
-async function updateDocServer(id, rec){
-  await setDoc(doc(db, "muon_tien", id), {...rec, id});
-}
-async function deleteDocServer(id){
-  await deleteDoc(doc(db, "muon_tien", id));
-}
-
-/* ================ Sync logic ================ */
-/* flushQueue: xử lý queued ops (set/delete) theo thứ tự */
-async function flushQueue(){
-  if(!navigator.onLine || !db) { updateSyncBadge(); return; }
-  updateSyncBadge();
-  let q = readOps();
-  while(q.length){
-    const op = q[0];
-    try{
-      if(op.type === "set"){
-        const rec = op.data;
-        if(rec.id && rec.id.startsWith("local_")){
-          // push to server (addDoc), get serverId
-          const serverId = await addDocServer({...rec, updatedAt: rec.updatedAt || now()});
-          // set mapping and update local storage
-          setMap(rec.id, serverId);
-          replaceLocalIds({[rec.id]: serverId});
-          // Also update server doc content with id field (setDoc)
-          await setDocServer(serverId, {...rec, id: serverId});
-          // replace any queued ops referencing local id
-          q = readOps().map(it=>{
-            if(it.id === rec.id) it.id = serverId;
-            if(it.data && it.data.id === rec.id) it.data.id = serverId;
-            return it;
-          });
-          writeOps(q);
-        } else {
-          // server id available: set/overwrite
-          await setDocServer(rec.id, rec);
-        }
-      } else if(op.type === "delete"){
-        const id = op.id;
-        if(id && id.startsWith("local_")){
-          // local-only, nothing to delete on server
-        } else {
-          await deleteDocServer(id);
-        }
-      }
-      // success -> dequeue
-      dequeue();
-      q = readOps();
-    }catch(e){
-      console.warn("flushQueue error:", e.message);
-      break; // dừng để chờ lần sau
+    function hexToNumber(v){
+      v = (v||'').trim();
+      if(/^0x/i.test(v)) return parseInt(v,16);
+      if(/[a-f]/i.test(v)) return parseInt(v,16);
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0x10000;
     }
-  }
-  updateSyncBadge();
-}
 
-/* ================ Realtime listener (server -> local) ================ */
-let unsubscribe = null;
-function attachRealtime(){
-  if(!db || !navigator.onLine) return;
-  // detach first if needed
-  if(unsubscribe) { unsubscribe(); unsubscribe = null; }
-  const q = query(collection(db, "muon_tien"), orderBy("dateIso", "desc"));
-  unsubscribe = onSnapshot(q, (snapshot)=>{
-    // Build server array
-    const serverArr = [];
-    snapshot.forEach(d=> serverArr.push(d.data()));
-    // Local-only records (local_*) should be kept and will be pushed soon
-    const localArr = readLocal();
-    const localOnly = localArr.filter(r=> r.id && r.id.startsWith("local_"));
-    // Merge: server as base, append localOnly not present on server
-    const merged = [...serverArr];
-    for(const lo of localOnly){
-      if(!serverArr.find(s=> s.id === lo.id)) merged.push(lo);
-    }
-    writeLocal(merged);
-    renderFrom(merged);
-  }, err=>{
-    console.warn("onSnapshot error:", err.message);
-  });
-}
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) { statusEl.textContent = 'Chưa chọn file.'; return; }
 
-function detachRealtime(){
-  if(unsubscribe){ unsubscribe(); unsubscribe = null; }
-}
+      if (manifestURL) URL.revokeObjectURL(manifestURL);
 
-/* ================ CRUD UI actions ================ */
-document.getElementById("btnAdd").addEventListener("click", async ()=>{
-  const dateIso = (document.getElementById("date").value || "").trim();
-  const name = (document.getElementById("name").value || "").trim();
-  const amount = Number(document.getElementById("amount").value || 0);
-  const interest = Number(document.getElementById("interest").value || 0);
-  if(!dateIso || !name || !amount){ alert("Vui lòng nhập đủ Ngày/Tên/Số tiền"); return; }
-  const rec = { id: uidLocal(), dateIso, date: toDisplay(dateIso), name, amount, interest, updatedAt: now() };
-  // save local
-  const arr = readLocal(); arr.push(rec); writeLocal(arr); renderLocal();
-  // if online: push to server (handled in flushQueue); we'll queue for reliability
-  enqueue({type:"set", id: rec.id, data: rec, ts: now()});
-  // try flush now if online
-  if(navigator.onLine) await flushQueue();
-  // clear fields
-  document.getElementById("name").value=""; document.getElementById("amount").value=""; document.getElementById("interest").value="";
-  updateNetBadge(); updateSyncBadge();
-});
+      const fwURL = URL.createObjectURL(file);
+      const chipFamily = document.getElementById('chip').value;
+      const offset = hexToNumber(document.getElementById('offset').value);
 
-window.editLoan = async (id)=>{
-  const pass = prompt("Nhập mật khẩu để sửa:");
-  if(pass !== PASSWORD) return alert("Sai mật khẩu!");
-  const arr = readLocal();
-  const idx = arr.findIndex(x=> x.id === id);
-  if(idx < 0) return;
-  const cur = arr[idx];
-  const newDate = prompt("Ngày (DD-MM-YYYY):", cur.date) || cur.date;
-  const newName = prompt("Tên:", cur.name) || cur.name;
-  const newAmount = Number(prompt("Số tiền:", cur.amount) || cur.amount);
-  const newInterest = Number(prompt("Tiền lãi:", cur.interest) || cur.interest);
-  const updated = {...cur, date: newDate, dateIso: toIso(newDate), name: newName, amount: newAmount, interest: newInterest, updatedAt: now() };
-  arr[idx] = updated; writeLocal(arr); renderLocal();
-  enqueue({type:"set", id: updated.id, data: updated, ts: now()});
-  if(navigator.onLine) await flushQueue();
-  updateSyncBadge();
-};
+      const manifest = {
+        name: "Local Firmware",
+        version: "direct",
+        builds: [{
+          chipFamily,
+          parts: [{ path: fwURL, offset }]
+        }]
+      };
 
-window.deleteLoan = async (id)=>{
-  const pass = prompt("Nhập mật khẩu để xóa:");
-  if(pass !== PASSWORD) return alert("Sai mật khẩu!");
-  if(!confirm("Chắc chắn xóa dòng này?")) return;
-  // remove local
-  const arr = readLocal().filter(x=> x.id !== id);
-  writeLocal(arr); renderLocal();
-  enqueue({type:"delete", id, ts: now()});
-  if(navigator.onLine) await flushQueue();
-  updateSyncBadge();
-};
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+      manifestURL = URL.createObjectURL(blob);
 
-/* ================ flushQueue periodically ================ */
-setInterval(()=>{ if(navigator.onLine) flushQueue(); }, 4000);
-
-/* ================ Login flow ================ */
-btnLogin.addEventListener("click", ()=>{
-  const pass = loginPassword.value.trim();
-  if(pass !== PASSWORD){ alert("Sai mật khẩu!"); return; }
-  loginModal.style.display = "none";
-  appEl.style.display = "block";
-  updateNetBadge();
-  // default online behavior: attach realtime if possible else render local
-  if(navigator.onLine && db){
-    attachRealtime();
-    flushQueue();
-  } else {
-    renderLocal();
-  }
-});
-loginPassword.addEventListener("keydown", e=>{ if(e.key === "Enter") btnLogin.click(); });
-
-/* ================ Canvas particles background ================ */
-const canvas = document.getElementById("bg");
-const ctx = canvas.getContext("2d");
-let W=0,H=0, particles=[];
-function resize(){ W = canvas.width = innerWidth * devicePixelRatio; H = canvas.height = innerHeight * devicePixelRatio; }
-addEventListener("resize", resize); resize();
-function initParticles(){
-  const count = Math.min(120, Math.floor((innerWidth*innerHeight)/12000));
-  particles = [];
-  for(let i=0;i<count;i++){
-    particles.push({
-      x: Math.random()*W, y: Math.random()*H,
-      vx: (Math.random()*2-1)*0.15*devicePixelRatio,
-      vy: (Math.random()*2-1)*0.15*devicePixelRatio,
-      r: (Math.random()*2+0.8)*devicePixelRatio
+      installBtn.setAttribute('manifest', manifestURL);
+      statusEl.textContent = `Sẵn sàng flash: ${file.name}`;
     });
-  }
-}
-initParticles();
-function frame(){
-  ctx.clearRect(0,0,W,H);
-  const g = ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,"#8fd3f4"); g.addColorStop(1,"#84fab0");
-  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-  ctx.globalAlpha = 0.95;
-  for(const p of particles){
-    p.x += p.vx; p.y += p.vy;
-    if(p.x<0) p.x=W; if(p.x>W) p.x=0; if(p.y<0) p.y=H; if(p.y>H) p.y=0;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fill();
-  }
-  ctx.lineWidth = 0.6*devicePixelRatio; ctx.strokeStyle = "rgba(255,255,255,0.2)";
-  for(let i=0;i<particles.length;i++){
-    for(let j=i+1;j<particles.length;j++){
-      const a=particles[i], b=particles[j], dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy;
-      if(d2 < (120*devicePixelRatio)**2){ ctx.globalAlpha=0.25; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
-    }
-  }
-  ctx.globalAlpha = 1;
-  requestAnimationFrame(frame);
-}
-frame();
 
-/* Initial UI update */
-updateNetBadge();
-renderLocal();
-</script>
-</body>
+    window.addEventListener('unload', () => {
+      if (manifestURL) URL.revokeObjectURL(manifestURL);
+    });
+  </script></body>
 </html>
