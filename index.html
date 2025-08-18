@@ -11,11 +11,11 @@
     h1 { background:#3f51b5; color:#fff; padding:15px; margin:0; }
     .status { margin:15px; font-weight:bold; }
     .cards { display:flex; justify-content:center; gap:40px; margin-top:30px; }
-    .card { background:#fff; padding:20px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1); width:160px; }
+    .card { background:#fff; padding:20px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1); width:180px; }
     .label { font-size:20px; font-weight:bold; margin-bottom:10px; }
     .temp { color:red; }
     .humi { color:blue; }
-    .value { font-size:40px; font-weight:bold; }
+    .value { font-size:30px; font-weight:bold; min-height:40px; }
 
     .relay { margin-top:40px; }
     .btn {
@@ -38,7 +38,7 @@
   </style>
 </head>
 <body>
-  <h1>DHT11</h1>
+  <h1>DHT11 Dashboard</h1>
   <div class="status" id="status">🔴 Chưa kết nối MQTT</div>
 
   <div class="cards">
@@ -56,7 +56,7 @@
     <h2>Điều khiển Relay</h2>
     <button class="btn on" id="btnOn">BẬT</button>
     <button class="btn off" id="btnOff">TẮT</button>
-    <p>Trạng thái relay: <span id="relayStatus">--</span></p>
+    <p>Trạng thái relay: <span id="relayStatus">⏳ Chưa rõ</span></p>
   </div>
 
   <div class="chart-container">
@@ -65,7 +65,6 @@
   </div>
 
   <script>
-    // --- Kết nối tới HiveMQ Cloud ---
     const options = {
       username: "thanh1996",
       password: "14121996Th",
@@ -82,26 +81,16 @@
     const humiEl = document.getElementById("humi");
     const relayStatusEl = document.getElementById("relayStatus");
 
-    // --- Biểu đồ Chart.js ---
+    // Chart.js setup
     const ctx = document.getElementById("dhtChart").getContext("2d");
-    const maxPoints = 20; // giữ tối đa 20 điểm dữ liệu (~100s nếu ESP gửi mỗi 5s)
+    const maxPoints = 20;
     const dhtChart = new Chart(ctx, {
       type: "line",
       data: {
         labels: [],
         datasets: [
-          {
-            label: "Nhiệt độ (°C)",
-            borderColor: "red",
-            data: [],
-            fill: false,
-          },
-          {
-            label: "Độ ẩm (%)",
-            borderColor: "blue",
-            data: [],
-            fill: false,
-          }
+          { label: "Nhiệt độ (°C)", borderColor: "red", data: [], fill: false },
+          { label: "Độ ẩm (%)", borderColor: "blue", data: [], fill: false }
         ]
       },
       options: {
@@ -127,7 +116,6 @@
       dhtChart.update();
     }
 
-    // --- MQTT sự kiện ---
     client.on("connect", () => {
       statusEl.textContent = "🟢 Đã kết nối MQTT";
       client.subscribe("esp8266/dht11/temp");
@@ -143,26 +131,37 @@
 
     client.on("message", (topic, message) => {
       const msg = message.toString();
+
       if (topic === "esp8266/dht11/temp") {
-        tempEl.textContent = msg + "°C";
-        latestTemp = parseFloat(msg);
-      }
-      if (topic === "esp8266/dht11/humi") {
-        humiEl.textContent = msg + "%";
-        latestHumi = parseFloat(msg);
-      }
-      if (topic === "esp8266/relay1/status") {
-        relayStatusEl.textContent = msg;
+        if (msg === "error") {
+          tempEl.textContent = "❌ Lỗi cảm biến";
+          latestTemp = null;
+        } else {
+          tempEl.textContent = msg + "°C";
+          latestTemp = parseFloat(msg);
+        }
       }
 
-      // Khi có đủ temp + humi, thêm vào chart
+      if (topic === "esp8266/dht11/humi") {
+        if (msg === "error") {
+          humiEl.textContent = "❌ Lỗi cảm biến";
+          latestHumi = null;
+        } else {
+          humiEl.textContent = msg + "%";
+          latestHumi = parseFloat(msg);
+        }
+      }
+
+      if (topic === "esp8266/relay1/status") {
+        relayStatusEl.textContent = msg === "on" ? "🟢 BẬT" : "🔴 TẮT";
+      }
+
       if (latestTemp !== null && latestHumi !== null) {
         addData(latestTemp, latestHumi);
-        latestTemp = latestHumi = null; // reset để đợi cặp mới
+        latestTemp = latestHumi = null;
       }
     });
 
-    // --- Điều khiển relay ---
     document.getElementById("btnOn").addEventListener("click", () => {
       client.publish("esp8266/relay1", "on");
     });
