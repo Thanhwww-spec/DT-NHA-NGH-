@@ -10,6 +10,7 @@
     body { font-family: sans-serif; text-align:center; background:#f4f4f4; }
     h1 { background:#3f51b5; color:#fff; padding:15px; margin:0; }
     .status { margin:15px; font-weight:bold; }
+
     .cards { display:flex; justify-content:center; gap:40px; margin-top:30px; }
     .card { background:#fff; padding:20px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1); width:180px; }
     .label { font-size:20px; font-weight:bold; margin-bottom:10px; }
@@ -35,6 +36,52 @@
       border-radius: 15px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
+
+    /* ===== Ống 3D ===== */
+    .tube-container {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      margin: 50px auto;
+    }
+    .tube {
+      width: 80px;
+      height: 250px;
+      background: linear-gradient(90deg, #ddd, #eee, #ddd);
+      border-radius: 40px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset -8px -8px 15px rgba(255,255,255,0.6),
+                  inset 8px 8px 15px rgba(0,0,0,0.2),
+                  0 10px 20px rgba(0,0,0,0.25);
+    }
+    .fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 0%;
+      background: red;
+      border-radius: 40px;
+      box-shadow: inset 0 0 15px rgba(255,255,255,0.7),
+                  inset 0 0 20px rgba(0,0,0,0.3);
+      transition: height 0.8s ease;
+    }
+    .tube-label {
+      text-align: center;
+      font-weight: bold;
+      margin-top: 15px;
+      font-size: 18px;
+    }
+    .tube-value {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-weight: bold;
+      font-size: 20px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -49,6 +96,26 @@
     <div class="card">
       <div class="label humi">❄️ Độ ẩm</div>
       <div class="value" id="humi">--</div>
+    </div>
+  </div>
+
+  <!-- Ống 3D hiển thị -->
+  <div class="tube-container">
+    <div>
+      <div class="tube">
+        <div class="fill" id="tubeTemp">
+          <div class="tube-value" id="tubeTempVal">-- °C</div>
+        </div>
+      </div>
+      <div class="tube-label">Nhiệt độ</div>
+    </div>
+    <div>
+      <div class="tube">
+        <div class="fill" id="tubeHumi">
+          <div class="tube-value" id="tubeHumiVal">-- %</div>
+        </div>
+      </div>
+      <div class="tube-label">Độ ẩm</div>
     </div>
   </div>
 
@@ -80,6 +147,11 @@
     const tempEl = document.getElementById("temp");
     const humiEl = document.getElementById("humi");
     const relayStatusEl = document.getElementById("relayStatus");
+
+    const tubeTemp = document.getElementById("tubeTemp");
+    const tubeTempVal = document.getElementById("tubeTempVal");
+    const tubeHumi = document.getElementById("tubeHumi");
+    const tubeHumiVal = document.getElementById("tubeHumiVal");
 
     // Chart.js setup
     const ctx = document.getElementById("dhtChart").getContext("2d");
@@ -116,15 +188,24 @@
       dhtChart.update();
     }
 
+    function updateTube(tube, valEl, value, max, color) {
+      if (isNaN(value)) {
+        valEl.textContent = "❌ Lỗi";
+        tube.style.height = "0%";
+        tube.style.background = "#aaa";
+        return;
+      }
+      const percent = Math.min(100, (value / max) * 100);
+      tube.style.height = percent + "%";
+      tube.style.background = color;
+      valEl.textContent = value + (color === "red" ? " °C" : " %");
+    }
+
     client.on("connect", () => {
       statusEl.textContent = "🟢 Đã kết nối MQTT";
       client.subscribe("esp8266/dht11/temp");
       client.subscribe("esp8266/dht11/humi");
       client.subscribe("esp8266/relay1/status");
-    });
-
-    client.on("error", (err) => {
-      statusEl.textContent = "❌ Lỗi kết nối: " + err;
     });
 
     let latestTemp = null, latestHumi = null;
@@ -135,9 +216,11 @@
       if (topic === "esp8266/dht11/temp") {
         if (msg === "error") {
           tempEl.textContent = "❌ Lỗi cảm biến";
+          updateTube(tubeTemp, tubeTempVal, NaN, 50, "red");
           latestTemp = null;
         } else {
           tempEl.textContent = msg + "°C";
+          updateTube(tubeTemp, tubeTempVal, parseFloat(msg), 50, "red");
           latestTemp = parseFloat(msg);
         }
       }
@@ -145,9 +228,11 @@
       if (topic === "esp8266/dht11/humi") {
         if (msg === "error") {
           humiEl.textContent = "❌ Lỗi cảm biến";
+          updateTube(tubeHumi, tubeHumiVal, NaN, 100, "blue");
           latestHumi = null;
         } else {
           humiEl.textContent = msg + "%";
+          updateTube(tubeHumi, tubeHumiVal, parseFloat(msg), 100, "blue");
           latestHumi = parseFloat(msg);
         }
       }
