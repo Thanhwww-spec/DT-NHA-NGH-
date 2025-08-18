@@ -213,7 +213,7 @@
         client.subscribe("esp8266/dht11/humi");
         client.subscribe("esp8266/relay1/status");
       });
-      client.on("error",(err)=>{ statusEl.textContent="❌ Lỗi: "+err; });
+      client.on("error",(err)=>{ statusEl.textContent="❌ Lỗi cảm biến; });
 
       let latestTemp=null, latestHumi=null;
       client.on("message",(topic,message)=>{
