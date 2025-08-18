@@ -4,44 +4,53 @@
   <meta charset="UTF-8">
   <title>DHT11 Dashboard 3D</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
       background: linear-gradient(145deg, #0f0f0f, #1c1c1c);
       color: #fff;
-      text-align: center;
       margin: 0;
       padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
     h1 {
       background: #3b82f6;
       padding: 15px;
       margin: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 22px;
       border-radius: 0 0 20px 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.6);
     }
     .status {
       margin: 15px;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 16px;
+      text-align: center;
     }
     .container {
       display: flex;
-      justify-content: center;
+      justify-content: space-around;
       align-items: flex-end;
-      gap: 50px;
+      gap: 30px;
       margin: 20px 0;
+      width: 100%;
+      max-width: 400px;
     }
     .column {
-      width: 100px;
-      height: 250px;
+      width: 80px;
+      height: 220px;
       background: #333;
-      border-radius: 50px;
+      border-radius: 40px;
       position: relative;
       overflow: hidden;
-      box-shadow: inset -5px -5px 10px rgba(255,255,255,0.1),
-                  inset 5px 5px 15px rgba(0,0,0,0.7),
-                  0 6px 20px rgba(0,0,0,0.8);
+      box-shadow: inset -4px -4px 10px rgba(255,255,255,0.15),
+                  inset 4px 4px 12px rgba(0,0,0,0.8),
+                  0 6px 16px rgba(0,0,0,0.7);
     }
     .fill {
       position: absolute;
@@ -49,33 +58,37 @@
       width: 100%;
       height: 0%;
       transition: height 0.6s ease-in-out;
-      border-radius: 50px;
-      box-shadow: inset 0 0 20px rgba(255,255,255,0.3);
+      border-radius: 40px;
+      box-shadow: inset 0 0 18px rgba(255,255,255,0.3);
     }
     .fill.temp { background: linear-gradient(to top, #ff0000, #ff7f7f); }
     .fill.humi { background: linear-gradient(to top, #007bff, #7fbfff); }
     .label {
-      margin-top: 10px;
-      font-size: 18px;
+      margin-top: 8px;
+      font-size: 16px;
       font-weight: bold;
+      text-align: center;
     }
     .value {
-      margin: 5px 0;
-      font-size: 22px;
+      margin: 4px 0;
+      font-size: 20px;
       font-weight: bold;
+      text-align: center;
     }
     .card {
       background: #222;
-      margin: 15px auto;
-      padding: 20px;
+      margin: 15px;
+      padding: 15px;
       border-radius: 15px;
-      width: 320px;
+      width: 90%;
+      max-width: 360px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+      text-align: center;
     }
     .relay-btn {
-      margin: 10px;
-      padding: 10px 25px;
-      font-size: 18px;
+      margin: 8px;
+      padding: 10px 20px;
+      font-size: 16px;
       border: none;
       border-radius: 8px;
       cursor: pointer;
@@ -84,12 +97,12 @@
       transition: transform 0.2s;
     }
     .relay-btn:hover { transform: scale(1.05); }
-    .on { background: green; }
-    .off { background: red; }
+    .on { background: #16a34a; }
+    .off { background: #dc2626; }
   </style>
 </head>
 <body>
-  <h1>DHT11 Dashboard 3D</h1>
+  <h1>Bảng điều khiển DHT11 (3D)</h1>
   <div class="status" id="mqttStatus">🔴 Mất kết nối</div>
 
   <div class="container">
@@ -113,7 +126,6 @@
   </div>
 
   <script>
-    // --- Cấu hình MQTT (Websocket HiveMQ) ---
     const options = {
       username: "thanh1996",
       password: "14121996Th",
@@ -130,7 +142,6 @@
     const tempFill = document.getElementById("tempFill");
     const humiFill = document.getElementById("humiFill");
 
-    // --- Kết nối MQTT ---
     client.on("connect", () => {
       mqttStatus.textContent = "🟢 Đã kết nối MQTT";
       client.subscribe("esp8266/availability");
@@ -147,7 +158,6 @@
       humiFill.style.height = "0%";
     });
 
-    // --- Nhận dữ liệu ---
     client.on("message", (topic, message) => {
       const msg = message.toString();
       if (topic === "esp8266/availability") {
@@ -182,7 +192,6 @@
       }
     });
 
-    // --- Điều khiển Relay ---
     document.getElementById("btnOn").onclick = () => {
       client.publish("esp8266/relay1", "on");
       relayStatus.textContent = "Trạng thái: ON";
