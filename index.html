@@ -39,33 +39,33 @@
 </head>
 <body>
   <h1>DHT11</h1>
-  <div class="status" id="status">馃敶 Ch瓢a k岷縯 n峄慽 MQTT</div>
+  <div class="status" id="status">🔴 Chưa kết nối MQTT</div>
 
   <div class="cards">
     <div class="card">
-      <div class="label temp">馃尀 Nhi峄噒 膽峄�</div>
+      <div class="label temp">🌞 Nhiệt độ</div>
       <div class="value" id="temp">--</div>
     </div>
     <div class="card">
-      <div class="label humi">鉂勶笍 膼峄� 岷﹎</div>
+      <div class="label humi">❄️ Độ ẩm</div>
       <div class="value" id="humi">--</div>
     </div>
   </div>
 
   <div class="relay">
-    <h2>膼i峄乽 khi峄僴 Relay</h2>
-    <button class="btn on" id="btnOn">B岷琓</button>
-    <button class="btn off" id="btnOff">T岷甌</button>
-    <p>Tr岷g th谩i relay: <span id="relayStatus">--</span></p>
+    <h2>Điều khiển Relay</h2>
+    <button class="btn on" id="btnOn">BẬT</button>
+    <button class="btn off" id="btnOff">TẮT</button>
+    <p>Trạng thái relay: <span id="relayStatus">--</span></p>
   </div>
 
   <div class="chart-container">
-    <h2>L峄媍h s峄� Nhi峄噒 膽峄� & 膼峄� 岷﹎</h2>
+    <h2>Lịch sử Nhiệt độ & Độ ẩm</h2>
     <canvas id="dhtChart"></canvas>
   </div>
 
   <script>
-    // --- K岷縯 n峄慽 t峄沬 HiveMQ Cloud ---
+    // --- Kết nối tới HiveMQ Cloud ---
     const options = {
       username: "thanh1996",
       password: "14121996Th",
@@ -82,22 +82,22 @@
     const humiEl = document.getElementById("humi");
     const relayStatusEl = document.getElementById("relayStatus");
 
-    // --- Bi峄僽 膽峄� Chart.js ---
+    // --- Biểu đồ Chart.js ---
     const ctx = document.getElementById("dhtChart").getContext("2d");
-    const maxPoints = 20; // gi峄� t峄慽 膽a 20 膽i峄僲 d峄� li峄噓 (~100s n岷縰 ESP g峄璱 m峄梚 5s)
+    const maxPoints = 20; // giữ tối đa 20 điểm dữ liệu (~100s nếu ESP gửi mỗi 5s)
     const dhtChart = new Chart(ctx, {
       type: "line",
       data: {
         labels: [],
         datasets: [
           {
-            label: "Nhi峄噒 膽峄� (掳C)",
+            label: "Nhiệt độ (°C)",
             borderColor: "red",
             data: [],
             fill: false,
           },
           {
-            label: "膼峄� 岷﹎ (%)",
+            label: "Độ ẩm (%)",
             borderColor: "blue",
             data: [],
             fill: false,
@@ -108,7 +108,7 @@
         responsive: true,
         animation: false,
         scales: {
-          x: { display: true, title: { display: true, text: "Th峄漣 gian" } },
+          x: { display: true, title: { display: true, text: "Thời gian" } },
           y: { display: true, beginAtZero: true }
         }
       }
@@ -127,16 +127,16 @@
       dhtChart.update();
     }
 
-    // --- MQTT s峄� ki峄噉 ---
+    // --- MQTT sự kiện ---
     client.on("connect", () => {
-      statusEl.textContent = "馃煝 膼茫 k岷縯 n峄慽 MQTT";
+      statusEl.textContent = "🟢 Đã kết nối MQTT";
       client.subscribe("esp8266/dht11/temp");
       client.subscribe("esp8266/dht11/humi");
       client.subscribe("esp8266/relay1/status");
     });
 
     client.on("error", (err) => {
-      statusEl.textContent = "鉂� L峄梚 k岷縯 n峄慽: " + err;
+      statusEl.textContent = "❌ Lỗi kết nối: " + err;
     });
 
     let latestTemp = null, latestHumi = null;
@@ -144,7 +144,7 @@
     client.on("message", (topic, message) => {
       const msg = message.toString();
       if (topic === "esp8266/dht11/temp") {
-        tempEl.textContent = msg + "掳C";
+        tempEl.textContent = msg + "°C";
         latestTemp = parseFloat(msg);
       }
       if (topic === "esp8266/dht11/humi") {
@@ -155,14 +155,14 @@
         relayStatusEl.textContent = msg;
       }
 
-      // Khi c贸 膽峄� temp + humi, th锚m v脿o chart
+      // Khi có đủ temp + humi, thêm vào chart
       if (latestTemp !== null && latestHumi !== null) {
         addData(latestTemp, latestHumi);
-        latestTemp = latestHumi = null; // reset 膽峄� 膽峄 c岷穚 m峄沬
+        latestTemp = latestHumi = null; // reset để đợi cặp mới
       }
     });
 
-    // --- 膼i峄乽 khi峄僴 relay ---
+    // --- Điều khiển relay ---
     document.getElementById("btnOn").addEventListener("click", () => {
       client.publish("esp8266/relay1", "on");
     });
