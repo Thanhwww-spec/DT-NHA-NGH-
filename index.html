@@ -2,12 +2,12 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Bảng điều khiển DHT11 (3D)</title>
+  <title>DHT11 Dashboard</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: linear-gradient(145deg, #0f0f0f, #1c1c1c);
+      background: #111;
       color: #fff;
       text-align: center;
       margin: 0;
@@ -15,108 +15,76 @@
     }
     h1 {
       background: #3b82f6;
-      padding: 20px;
+      padding: 15px;
       margin: 0;
-      font-size: 28px;
-      border-radius: 0 0 25px 25px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      border-radius: 5px;
     }
     .status {
-      margin: 15px;
+      margin: 10px;
       font-weight: bold;
-      font-size: 20px;
     }
-    .container {
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      gap: 80px;
-      margin: 40px 0;
-      flex-wrap: wrap;
+    .card {
+      display: inline-block;
+      background: #222;
+      margin: 15px;
+      padding: 20px;
+      border-radius: 15px;
+      width: 150px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.6);
     }
-    .column {
-      width: 140px;
-      height: 400px;
+    .card h2 {
+      margin: 10px 0;
+    }
+    .gauge {
+      margin: 20px auto;
+      width: 60px;
+      height: 150px;
+      border-radius: 30px;
       background: #333;
-      border-radius: 70px;
       position: relative;
       overflow: hidden;
-      box-shadow: inset -6px -6px 12px rgba(255,255,255,0.1),
-                  inset 6px 6px 18px rgba(0,0,0,0.7),
-                  0 8px 25px rgba(0,0,0,0.8);
+      box-shadow: inset 0 0 10px #000;
     }
     .fill {
       position: absolute;
       bottom: 0;
       width: 100%;
-      height: 0%;
-      transition: height 0.6s ease-in-out;
-      border-radius: 70px;
-      box-shadow: inset 0 0 25px rgba(255,255,255,0.3);
+      background: linear-gradient(to top, red, #f87171);
+      transition: height 0.5s;
     }
-    .fill.temp { background: linear-gradient(to top, #ff0000, #ff7f7f); }
-    .fill.humi { background: linear-gradient(to top, #007bff, #7fbfff); }
-    .label {
-      margin-top: 15px;
-      font-size: 22px;
-      font-weight: bold;
-    }
-    .value {
-      margin: 8px 0;
-      font-size: 26px;
-      font-weight: bold;
-    }
-    .card {
-      background: #222;
-      margin: 20px auto;
-      padding: 25px;
-      border-radius: 20px;
-      width: 340px;
-      box-shadow: 0 6px 12px rgba(0,0,0,0.6);
+    .fill.humi {
+      background: linear-gradient(to top, blue, #60a5fa);
     }
     .relay-btn {
-      margin: 12px;
-      padding: 12px 28px;
-      font-size: 20px;
+      margin: 10px;
+      padding: 10px 25px;
+      font-size: 18px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
       color: white;
-      box-shadow: 0 5px 12px rgba(0,0,0,0.5);
-      transition: transform 0.2s;
     }
-    .relay-btn:hover { transform: scale(1.08); }
     .on { background: green; }
     .off { background: red; }
-
-    /* Responsive cho mobile */
-    @media (max-width: 600px) {
-      .container { gap: 40px; margin: 20px 0; }
-      .column { width: 120px; height: 300px; }
-      .label { font-size: 18px; }
-      .value { font-size: 22px; }
-      .card { width: 90%; }
-    }
   </style>
 </head>
 <body>
-  <h1>Bảng điều khiển DHT11 (3D)</h1>
+  <h1>DHT11 Dashboard</h1>
   <div class="status" id="mqttStatus">🔴 Mất kết nối</div>
 
-  <div class="container">
-    <div>
-      <div class="column"><div id="tempFill" class="fill temp"></div></div>
-      <div class="label">🌡 Nhiệt độ</div>
-      <div class="value" id="tempValue">--</div>
-    </div>
-    <div>
-      <div class="column"><div id="humiFill" class="fill humi"></div></div>
-      <div class="label">💧 Độ ẩm</div>
-      <div class="value" id="humiValue">--</div>
-    </div>
+  <div class="card">
+    <h2>🌡 Nhiệt độ</h2>
+    <div id="tempValue">--</div>
+    <div class="gauge"><div id="tempFill" class="fill"></div></div>
   </div>
 
   <div class="card">
+    <h2>💧 Độ ẩm</h2>
+    <div id="humiValue">--</div>
+    <div class="gauge"><div id="humiFill" class="fill humi"></div></div>
+  </div>
+
+  <div class="card" style="width:300px;">
     <h2>Điều khiển Relay</h2>
     <div id="relayStatus">Trạng thái: --</div>
     <button class="relay-btn on" id="btnOn">BẬT</button>
@@ -132,6 +100,7 @@
       connectTimeout: 4000,
       reconnectPeriod: 2000
     };
+
     const client = mqtt.connect("wss://21a3db3a20cb4f279935ea81af04ba01.s1.eu.hivemq.cloud:8884/mqtt", options);
 
     const mqttStatus = document.getElementById("mqttStatus");
@@ -141,33 +110,35 @@
     const tempFill = document.getElementById("tempFill");
     const humiFill = document.getElementById("humiFill");
 
-    // --- Kết nối MQTT ---
+    // --- Sự kiện kết nối ---
     client.on("connect", () => {
-      mqttStatus.textContent = "🟢 ESP Online";
+      mqttStatus.textContent = "🟢 Đã kết nối MQTT";
       client.subscribe("esp8266/availability");
       client.subscribe("esp8266/dht11/temp");
       client.subscribe("esp8266/dht11/humi");
       client.subscribe("esp8266/relay1/status");
     });
 
+    client.on("reconnect", () => {
+      mqttStatus.textContent = "🟡 Đang thử kết nối lại...";
+    });
+
     client.on("offline", () => {
       mqttStatus.textContent = "🔴 Mất kết nối";
       tempValue.textContent = "❌ Lỗi cảm biến";
       humiValue.textContent = "❌ Lỗi cảm biến";
-      tempFill.style.height = "0%";
-      humiFill.style.height = "0%";
     });
 
-    // --- Nhận dữ liệu ---
+    // --- Xử lý dữ liệu nhận ---
     client.on("message", (topic, message) => {
       const msg = message.toString();
       if (topic === "esp8266/availability") {
-        mqttStatus.textContent = msg === "online" ? "🟢 ESP Online" : "🔴 ESP Offline";
-        if (msg === "offline") {
+        if (msg === "online") {
+          mqttStatus.textContent = "🟢 ESP Online";
+        } else {
+          mqttStatus.textContent = "🔴 ESP Offline";
           tempValue.textContent = "❌ Lỗi cảm biến";
           humiValue.textContent = "❌ Lỗi cảm biến";
-          tempFill.style.height = "0%";
-          humiFill.style.height = "0%";
         }
       }
       if (topic === "esp8266/dht11/temp") {
