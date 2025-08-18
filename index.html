@@ -1,1 +1,178 @@
-00000😁😁😁😁😁😁😁😁😁😁😁😁😁😁😁
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>DHT11 Dashboard</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      background: #3b82f6;
+      padding: 15px;
+      margin: 0;
+      border-radius: 5px;
+    }
+    .status {
+      margin: 10px;
+      font-weight: bold;
+    }
+    .card {
+      display: inline-block;
+      background: #222;
+      margin: 15px;
+      padding: 20px;
+      border-radius: 15px;
+      width: 150px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+    }
+    .card h2 {
+      margin: 10px 0;
+    }
+    .gauge {
+      margin: 20px auto;
+      width: 60px;
+      height: 150px;
+      border-radius: 30px;
+      background: #333;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 10px #000;
+    }
+    .fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: linear-gradient(to top, red, #f87171);
+      transition: height 0.5s;
+    }
+    .fill.humi {
+      background: linear-gradient(to top, blue, #60a5fa);
+    }
+    .relay-btn {
+      margin: 10px;
+      padding: 10px 25px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: white;
+    }
+    .on { background: green; }
+    .off { background: red; }
+  </style>
+</head>
+<body>
+  <h1>DHT11 Dashboard</h1>
+  <div class="status" id="mqttStatus">🔴 Mất kết nối</div>
+
+  <div class="card">
+    <h2>🌡 Nhiệt độ</h2>
+    <div id="tempValue">--</div>
+    <div class="gauge"><div id="tempFill" class="fill"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>💧 Độ ẩm</h2>
+    <div id="humiValue">--</div>
+    <div class="gauge"><div id="humiFill" class="fill humi"></div></div>
+  </div>
+
+  <div class="card" style="width:300px;">
+    <h2>Điều khiển Relay</h2>
+    <div id="relayStatus">Trạng thái: --</div>
+    <button class="relay-btn on" id="btnOn">BẬT</button>
+    <button class="relay-btn off" id="btnOff">TẮT</button>
+  </div>
+
+  <script>
+    // --- Cấu hình MQTT (Websocket HiveMQ) ---
+    const options = {
+      username: "thanh1996",
+      password: "14121996Th",
+      clean: true,
+      connectTimeout: 4000,
+      reconnectPeriod: 2000
+    };
+
+    const client = mqtt.connect("wss://21a3db3a20cb4f279935ea81af04ba01.s1.eu.hivemq.cloud:8884/mqtt", options);
+
+    const mqttStatus = document.getElementById("mqttStatus");
+    const tempValue = document.getElementById("tempValue");
+    const humiValue = document.getElementById("humiValue");
+    const relayStatus = document.getElementById("relayStatus");
+    const tempFill = document.getElementById("tempFill");
+    const humiFill = document.getElementById("humiFill");
+
+    // --- Sự kiện kết nối ---
+    client.on("connect", () => {
+      mqttStatus.textContent = "🟢 Đã kết nối MQTT";
+      client.subscribe("esp8266/availability");
+      client.subscribe("esp8266/dht11/temp");
+      client.subscribe("esp8266/dht11/humi");
+      client.subscribe("esp8266/relay1/status");
+    });
+
+    client.on("reconnect", () => {
+      mqttStatus.textContent = "🟡 Đang thử kết nối lại...";
+    });
+
+    client.on("offline", () => {
+      mqttStatus.textContent = "🔴 Mất kết nối";
+      tempValue.textContent = "❌ Lỗi cảm biến";
+      humiValue.textContent = "❌ Lỗi cảm biến";
+    });
+
+    // --- Xử lý dữ liệu nhận ---
+    client.on("message", (topic, message) => {
+      const msg = message.toString();
+      if (topic === "esp8266/availability") {
+        if (msg === "online") {
+          mqttStatus.textContent = "🟢 ESP Online";
+        } else {
+          mqttStatus.textContent = "🔴 ESP Offline";
+          tempValue.textContent = "❌ Lỗi cảm biến";
+          humiValue.textContent = "❌ Lỗi cảm biến";
+        }
+      }
+      if (topic === "esp8266/dht11/temp") {
+        if (msg === "error") {
+          tempValue.textContent = "❌ Lỗi cảm biến";
+          tempFill.style.height = "0%";
+        } else {
+          tempValue.textContent = msg + " °C";
+          tempFill.style.height = Math.min(parseFloat(msg), 100) + "%";
+        }
+      }
+      if (topic === "esp8266/dht11/humi") {
+        if (msg === "error") {
+          humiValue.textContent = "❌ Lỗi cảm biến";
+          humiFill.style.height = "0%";
+        } else {
+          humiValue.textContent = msg + " %";
+          humiFill.style.height = Math.min(parseFloat(msg), 100) + "%";
+        }
+      }
+      if (topic === "esp8266/relay1/status") {
+        relayStatus.textContent = "Trạng thái: " + msg.toUpperCase();
+      }
+    });
+
+    // --- Điều khiển Relay ---
+    document.getElementById("btnOn").onclick = () => {
+      client.publish("esp8266/relay1", "on");
+      relayStatus.textContent = "Trạng thái: ON";
+    };
+    document.getElementById("btnOff").onclick = () => {
+      client.publish("esp8266/relay1", "off");
+      relayStatus.textContent = "Trạng thái: OFF";
+    };
+  </script>
+</body>
+</html>
