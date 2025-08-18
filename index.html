@@ -7,61 +7,64 @@
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      margin:0; font-family:sans-serif;
-      background: linear-gradient(135deg,#4facfe,#00f2fe);
-      min-height:100vh;
+    body { font-family: sans-serif; background:#111; margin:0; color:#fff; }
+    h1 { background:#3f51b5; padding:15px; margin:0; text-align:center; }
+
+    /* --- Login screen --- */
+    #loginScreen {
       display:flex; justify-content:center; align-items:center;
+      height:100vh; background:linear-gradient(135deg,#1a1a1a,#333);
+      perspective:1000px;
+    }
+    .login-box {
+      background:#222; padding:40px; border-radius:20px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.6);
+      transform:rotateY(10deg); transition:transform 0.6s;
+    }
+    .login-box:hover { transform:rotateY(0deg); }
+    .login-box h2 { margin-bottom:20px; color:#4cafef; }
+    .login-box input {
+      width:100%; padding:12px; margin:10px 0;
+      border:none; border-radius:8px; font-size:16px;
+    }
+    .login-box button {
+      width:100%; padding:12px; margin-top:10px;
+      background:#4caf50; border:none; border-radius:8px;
+      font-size:18px; font-weight:bold; cursor:pointer; color:#fff;
     }
 
-    /* LOGIN 3D */
-    #loginForm {
-      width:300px; padding:40px;
-      border-radius:20px;
-      background: rgba(255,255,255,0.15);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-      backdrop-filter: blur(12px);
-      border:1px solid rgba(255,255,255,0.3);
-      text-align:center;
-      color:#fff;
-      transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
-      transition: transform 0.5s;
-    }
-    #loginForm:hover { transform: perspective(1000px) rotateY(10deg) rotateX(5deg); }
-    #loginForm h2 { margin-bottom:20px; font-size:26px; font-weight:bold; text-shadow:0 3px 6px rgba(0,0,0,0.4); }
-    #loginForm input {
-      width: 80%; padding:12px; margin:12px auto; display:block;
-      border:none; outline:none; border-radius:10px; font-size:16px;
-      text-align:center;
-      box-shadow: inset 2px 2px 6px rgba(0,0,0,0.3),
-                  inset -2px -2px 6px rgba(255,255,255,0.3);
-    }
-    #loginForm button {
-      padding:12px 25px; border:none; border-radius:12px;
-      background: linear-gradient(135deg,#667eea,#764ba2);
-      color:#fff; font-weight:bold; font-size:16px;
-      cursor:pointer; margin-top:15px;
-      box-shadow:0 4px 15px rgba(0,0,0,0.4);
-      transition: transform 0.2s;
-    }
-    #loginForm button:hover { transform:scale(1.05); }
-    #errorMsg { margin-top:12px; color:yellow; font-weight:bold; text-shadow:0 1px 3px rgba(0,0,0,0.7); }
+    /* --- Dashboard --- */
+    #dashboard { display:none; text-align:center; padding:20px; }
 
-    /* DASHBOARD */
-    #dashboard { display:none; width:100%; }
-    h1 { background:#3f51b5; color:#fff; padding:15px; margin:0; text-align:center; }
-    .status { margin:15px; font-weight:bold; text-align:center; }
-    .cards { display:flex; justify-content:center; gap:40px; margin-top:30px; flex-wrap:wrap; }
+    .status { margin:15px; font-weight:bold; }
+    .cards { display:flex; justify-content:center; gap:40px; margin-top:20px; }
     .card {
-      background:#fff; padding:20px; border-radius:15px;
-      box-shadow:0 4px 10px rgba(0,0,0,0.1); width:160px; text-align:center;
+      background:#222; padding:20px; border-radius:15px;
+      box-shadow:0 4px 15px rgba(0,0,0,0.5); width:180px;
     }
     .label { font-size:20px; font-weight:bold; margin-bottom:10px; }
-    .temp { color:red; }
-    .humi { color:blue; }
-    .value { font-size:40px; font-weight:bold; }
+    .temp { color:#ff5252; }
+    .humi { color:#2196f3; }
+    .value { font-size:28px; font-weight:bold; }
 
-    .relay { margin-top:40px; text-align:center; }
+    /* --- 3D tubes --- */
+    .tubes { display:flex; justify-content:center; gap:60px; margin:30px 0; }
+    .tube {
+      width:60px; height:200px; border-radius:30px;
+      background:linear-gradient(#444,#222);
+      border:3px solid #555; position:relative;
+      overflow:hidden; box-shadow:inset 0 0 15px rgba(0,0,0,0.8);
+    }
+    .fill {
+      position:absolute; bottom:0; width:100%;
+      border-radius:30px;
+      transition:height 0.5s;
+    }
+    .temp-fill { background:linear-gradient(to top,#ff0000,#ff8080); }
+    .humi-fill { background:linear-gradient(to top,#0080ff,#80c0ff); }
+
+    /* --- Relay --- */
+    .relay { margin-top:30px; }
     .btn {
       font-size:18px; padding:12px 25px; margin:10px;
       border:none; border-radius:10px; cursor:pointer;
@@ -70,46 +73,26 @@
     .on { background:#22c55e; }
     .off { background:#ef4444; }
 
+    /* --- Chart --- */
     .chart-container {
-      width: 90%; max-width: 800px;
-      margin: 40px auto;
-      background: #fff; padding: 20px;
-      border-radius: 15px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-
-    /* ỐNG 3D */
-    .tubes { display:flex; justify-content:center; gap:60px; margin-top:40px; }
-    .tube {
-      width:60px; height:200px;
-      background:linear-gradient(to right,#ccc,#eee,#ccc);
-      border-radius:30px;
-      position:relative; overflow:hidden;
-      box-shadow: inset -5px -5px 10px rgba(255,255,255,0.6),
-                  inset 5px 5px 15px rgba(0,0,0,0.2),
-                  0 8px 20px rgba(0,0,0,0.3);
-    }
-    .fill {
-      position:absolute; bottom:0; width:100%;
-      border-radius:30px;
-      transition:height 0.5s;
-    }
-    .tube-label {
-      text-align:center; margin-top:10px; font-weight:bold; color:#333;
+      width:90%; max-width:800px; margin:30px auto;
+      background:#222; padding:20px; border-radius:15px;
+      box-shadow:0 4px 15px rgba(0,0,0,0.5);
     }
   </style>
 </head>
 <body>
-
-  <!-- 🔐 FORM LOGIN -->
-  <div id="loginForm">
-    <h2>🔐 Đăng nhập</h2>
-    <input type="password" id="password" placeholder="Nhập mật khẩu"/>
-    <button onclick="checkLogin()">Đăng nhập</button>
-    <div id="errorMsg"></div>
+  <!-- Login -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <h2>🔐 Đăng nhập</h2>
+      <input type="password" id="password" placeholder="Nhập mật khẩu">
+      <button onclick="checkLogin()">Đăng nhập</button>
+      <p id="loginError" style="color:red; display:none;">❌ Sai mật khẩu!</p>
+    </div>
   </div>
 
-  <!-- 📊 DASHBOARD -->
+  <!-- Dashboard -->
   <div id="dashboard">
     <h1>DHT11 Dashboard</h1>
     <div class="status" id="status">🔴 Chưa kết nối MQTT</div>
@@ -127,23 +110,19 @@
 
     <!-- Ống 3D -->
     <div class="tubes">
-      <div>
-        <div class="tube"><div class="fill" id="tempFill" style="background:red;height:0%"></div></div>
-        <div class="tube-label">Nhiệt độ</div>
-      </div>
-      <div>
-        <div class="tube"><div class="fill" id="humiFill" style="background:blue;height:0%"></div></div>
-        <div class="tube-label">Độ ẩm</div>
-      </div>
+      <div class="tube"><div class="fill temp-fill" id="tempFill" style="height:0%"></div></div>
+      <div class="tube"><div class="fill humi-fill" id="humiFill" style="height:0%"></div></div>
     </div>
 
+    <!-- Relay -->
     <div class="relay">
       <h2>Điều khiển Relay</h2>
       <button class="btn on" id="btnOn">BẬT</button>
       <button class="btn off" id="btnOff">TẮT</button>
-      <p>Trạng thái relay: <span id="relayStatus">--</span></p>
+      <p>Trạng thái relay: <span id="relayStatus">⏳ Chưa rõ</span></p>
     </div>
 
+    <!-- Chart -->
     <div class="chart-container">
       <h2>Lịch sử Nhiệt độ & Độ ẩm</h2>
       <canvas id="dhtChart"></canvas>
@@ -151,50 +130,56 @@
   </div>
 
   <script>
-    // ✅ Đăng nhập
-    const PASSWORD = "8888";
+    const PASSWORD = "1234"; // ✅ Đổi mật khẩu tại đây
+
     function checkLogin(){
-      const pass = document.getElementById("password").value;
-      if(pass === PASSWORD){
-        document.getElementById("loginForm").style.display="none";
+      const pass=document.getElementById("password").value;
+      if(pass===PASSWORD){
+        document.getElementById("loginScreen").style.display="none";
         document.getElementById("dashboard").style.display="block";
-        startMQTT(); // 👉 bắt đầu khi login thành công
+        startMQTT();
       } else {
-        document.getElementById("errorMsg").textContent="❌ Sai mật khẩu!";
+        document.getElementById("loginError").style.display="block";
       }
     }
 
-    // ✅ MQTT + Dashboard
+    // ================== Dashboard Script ==================
+    let client, tempEl, humiEl, relayStatusEl, tempFill, humiFill;
+    let latestTemp=null, latestHumi=null;
+
     function startMQTT(){
+      tempEl=document.getElementById("temp");
+      humiEl=document.getElementById("humi");
+      relayStatusEl=document.getElementById("relayStatus");
+      tempFill=document.getElementById("tempFill");
+      humiFill=document.getElementById("humiFill");
+
       const options = {
-        username: "thanh1996",
-        password: "14121996Th",
-        protocol: "wss",
-        port: 8884,
-        clientId: "webClient_" + Math.random().toString(16).substr(2, 8)
+        username:"thanh1996",
+        password:"14121996Th",
+        protocol:"wss", port:8884,
+        clientId:"webClient_"+Math.random().toString(16).substr(2,8)
       };
-      const host = "wss://21a3db3a20cb4f279935ea81af04ba01.s1.eu.hivemq.cloud:8884/mqtt";
-      const client = mqtt.connect(host, options);
+      const host="wss://21a3db3a20cb4f279935ea81af04ba01.s1.eu.hivemq.cloud:8884/mqtt";
+      client=mqtt.connect(host,options);
 
-      const statusEl = document.getElementById("status");
-      const tempEl = document.getElementById("temp");
-      const humiEl = document.getElementById("humi");
-      const relayStatusEl = document.getElementById("relayStatus");
-      const tempFill = document.getElementById("tempFill");
-      const humiFill = document.getElementById("humiFill");
+      const statusEl=document.getElementById("status");
 
-      const ctx = document.getElementById("dhtChart").getContext("2d");
-      const dhtChart = new Chart(ctx,{
+      // Chart
+      const ctx=document.getElementById("dhtChart").getContext("2d");
+      const maxPoints=20;
+      const dhtChart=new Chart(ctx,{
         type:"line",
         data:{ labels:[], datasets:[
           {label:"Nhiệt độ (°C)",borderColor:"red",data:[],fill:false},
           {label:"Độ ẩm (%)",borderColor:"blue",data:[],fill:false}
         ]},
-        options:{responsive:true,animation:false,scales:{y:{beginAtZero:true}}}
+        options:{ responsive:true,animation:false,
+          scales:{ x:{title:{display:true,text:"Thời gian"}}, y:{beginAtZero:true} }
+        }
       });
-      const maxPoints=20;
 
-      function addData(temp,humi){
+      function addData(t,h){
         const now=new Date().toLocaleTimeString();
         if(dhtChart.data.labels.length>=maxPoints){
           dhtChart.data.labels.shift();
@@ -202,8 +187,8 @@
           dhtChart.data.datasets[1].data.shift();
         }
         dhtChart.data.labels.push(now);
-        dhtChart.data.datasets[0].data.push(temp);
-        dhtChart.data.datasets[1].data.push(humi);
+        dhtChart.data.datasets[0].data.push(t);
+        dhtChart.data.datasets[1].data.push(h);
         dhtChart.update();
       }
 
@@ -213,30 +198,51 @@
         client.subscribe("esp8266/dht11/humi");
         client.subscribe("esp8266/relay1/status");
       });
-      client.on("error",(err)=>{ statusEl.textContent="❌ Lỗi cảm biến; });
 
-      let latestTemp=null, latestHumi=null;
+      client.on("error",(err)=>{
+        statusEl.textContent="❌ Lỗi kết nối: "+err;
+      });
+
       client.on("message",(topic,message)=>{
         const msg=message.toString();
+
         if(topic==="esp8266/dht11/temp"){
-          tempEl.textContent=msg+"°C";
-          latestTemp=parseFloat(msg);
-          tempFill.style.height=Math.min(100,(latestTemp/50*100))+"%";
+          if(msg==="error"){
+            tempEl.textContent="⚠️ Lỗi cảm biến";
+            tempFill.style.height="0%";
+            latestTemp=null;
+          } else {
+            tempEl.textContent=msg+"°C";
+            latestTemp=parseFloat(msg);
+            tempFill.style.height=Math.min(100,(latestTemp/50*100))+"%";
+          }
         }
+
         if(topic==="esp8266/dht11/humi"){
-          humiEl.textContent=msg+"%";
-          latestHumi=parseFloat(msg);
-          humiFill.style.height=Math.min(100,latestHumi)+"%";
+          if(msg==="error"){
+            humiEl.textContent="⚠️ Lỗi cảm biến";
+            humiFill.style.height="0%";
+            latestHumi=null;
+          } else {
+            humiEl.textContent=msg+"%";
+            latestHumi=parseFloat(msg);
+            humiFill.style.height=Math.min(100,latestHumi)+"%";
+          }
         }
-        if(topic==="esp8266/relay1/status"){ relayStatusEl.textContent=msg; }
+
+        if(topic==="esp8266/relay1/status"){
+          relayStatusEl.textContent=msg;
+        }
+
         if(latestTemp!==null && latestHumi!==null){
           addData(latestTemp,latestHumi);
           latestTemp=latestHumi=null;
         }
       });
 
-      document.getElementById("btnOn").addEventListener("click",()=>{ client.publish("esp8266/relay1","on"); });
-      document.getElementById("btnOff").addEventListener("click",()=>{ client.publish("esp8266/relay1","off"); });
+      // Relay control
+      document.getElementById("btnOn").addEventListener("click",()=>client.publish("esp8266/relay1","on"));
+      document.getElementById("btnOff").addEventListener("click",()=>client.publish("esp8266/relay1","off"));
     }
   </script>
 </body>
