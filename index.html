@@ -1,85 +1,174 @@
-<!DOCTYPE html><html lang="vi">
+<!doctype html>
+<html lang="vi">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ESP32 Web Flasher (Direct)</title>
-  <script type="module" src="https://unpkg.com/esp-web-tools@9.0.3/dist/web/install-button.js"></script>
+  <title>DHT11 Dashboard</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; background: #111; color: #eee; margin: 0; padding: 20px; }
-    h1 { color: #8b5cf6; }
-    .card { background: #1b1b2a; padding: 20px; border-radius: 12px; max-width: 600px; margin: auto; }
-    input, select, button { margin: 8px 0; padding: 10px; border-radius: 8px; border: none; }
-    button { background: #8b5cf6; color: white; cursor: pointer; font-weight: bold; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #status { margin-top: 10px; font-size: 0.9rem; color: #aaa; }
+    body { font-family: sans-serif; text-align:center; background:#f4f4f4; }
+    h1 { background:#3f51b5; color:#fff; padding:15px; margin:0; }
+    .status { margin:15px; font-weight:bold; }
+    .cards { display:flex; justify-content:center; gap:40px; margin-top:30px; }
+    .card { background:#fff; padding:20px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1); width:160px; }
+    .label { font-size:20px; font-weight:bold; margin-bottom:10px; }
+    .temp { color:red; }
+    .humi { color:blue; }
+    .value { font-size:40px; font-weight:bold; }
+
+    .relay { margin-top:40px; }
+    .btn {
+      font-size:18px; padding:12px 25px; margin:10px;
+      border:none; border-radius:10px; cursor:pointer;
+      color:#fff; font-weight:bold;
+    }
+    .on { background:#22c55e; }
+    .off { background:#ef4444; }
+
+    .chart-container {
+      width: 90%;
+      max-width: 800px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>ESP32 Web Flasher</h1>
-    <p>Chọn file <code>.bin</code> từ máy và flash trực tiếp qua USB (Chrome/Edge).</p><label>Chọn file .bin</label>
-<input id="binFile" type="file" accept=".bin" />
+  <h1>DHT11</h1>
+  <div class="status" id="status">馃敶 Ch瓢a k岷縯 n峄慽 MQTT</div>
 
-<label>Chọn loại chip</label>
-<select id="chip">
-  <option value="ESP32" selected>ESP32</option>
-  <option value="ESP32-S2">ESP32-S2</option>
-  <option value="ESP32-S3">ESP32-S3</option>
-  <option value="ESP32-C3">ESP32-C3</option>
-  <option value="ESP8266">ESP8266</option>
-</select>
+  <div class="cards">
+    <div class="card">
+      <div class="label temp">馃尀 Nhi峄噒 膽峄�</div>
+      <div class="value" id="temp">--</div>
+    </div>
+    <div class="card">
+      <div class="label humi">鉂勶笍 膼峄� 岷﹎</div>
+      <div class="value" id="humi">--</div>
+    </div>
+  </div>
 
-<label>Offset (mặc định 0x10000)</label>
-<input id="offset" type="text" value="0x10000" />
+  <div class="relay">
+    <h2>膼i峄乽 khi峄僴 Relay</h2>
+    <button class="btn on" id="btnOn">B岷琓</button>
+    <button class="btn off" id="btnOff">T岷甌</button>
+    <p>Tr岷g th谩i relay: <span id="relayStatus">--</span></p>
+  </div>
 
-<div style="margin-top:12px;">
-  <esp-web-install-button id="installBtn" install-unsupported>Install</esp-web-install-button>
-</div>
+  <div class="chart-container">
+    <h2>L峄媍h s峄� Nhi峄噒 膽峄� & 膼峄� 岷﹎</h2>
+    <canvas id="dhtChart"></canvas>
+  </div>
 
-<div id="status">Chưa chọn file.</div>
+  <script>
+    // --- K岷縯 n峄慽 t峄沬 HiveMQ Cloud ---
+    const options = {
+      username: "thanh1996",
+      password: "14121996Th",
+      protocol: "wss",
+      port: 8884,
+      clientId: "webClient_" + Math.random().toString(16).substr(2, 8)
+    };
 
-  </div>  <script>
-    let manifestURL = null;
-    const fileInput = document.getElementById('binFile');
-    const installBtn = document.getElementById('installBtn');
-    const statusEl = document.getElementById('status');
+    const host = "wss://21a3db3a20cb4f279935ea81af04ba01.s1.eu.hivemq.cloud:8884/mqtt";
+    const client = mqtt.connect(host, options);
 
-    function hexToNumber(v){
-      v = (v||'').trim();
-      if(/^0x/i.test(v)) return parseInt(v,16);
-      if(/[a-f]/i.test(v)) return parseInt(v,16);
-      const n = Number(v);
-      return Number.isFinite(n) ? n : 0x10000;
+    const statusEl = document.getElementById("status");
+    const tempEl = document.getElementById("temp");
+    const humiEl = document.getElementById("humi");
+    const relayStatusEl = document.getElementById("relayStatus");
+
+    // --- Bi峄僽 膽峄� Chart.js ---
+    const ctx = document.getElementById("dhtChart").getContext("2d");
+    const maxPoints = 20; // gi峄� t峄慽 膽a 20 膽i峄僲 d峄� li峄噓 (~100s n岷縰 ESP g峄璱 m峄梚 5s)
+    const dhtChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Nhi峄噒 膽峄� (掳C)",
+            borderColor: "red",
+            data: [],
+            fill: false,
+          },
+          {
+            label: "膼峄� 岷﹎ (%)",
+            borderColor: "blue",
+            data: [],
+            fill: false,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: { display: true, title: { display: true, text: "Th峄漣 gian" } },
+          y: { display: true, beginAtZero: true }
+        }
+      }
+    });
+
+    function addData(temp, humi) {
+      const now = new Date().toLocaleTimeString();
+      if (dhtChart.data.labels.length >= maxPoints) {
+        dhtChart.data.labels.shift();
+        dhtChart.data.datasets[0].data.shift();
+        dhtChart.data.datasets[1].data.shift();
+      }
+      dhtChart.data.labels.push(now);
+      dhtChart.data.datasets[0].data.push(temp);
+      dhtChart.data.datasets[1].data.push(humi);
+      dhtChart.update();
     }
 
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files[0];
-      if (!file) { statusEl.textContent = 'Chưa chọn file.'; return; }
-
-      if (manifestURL) URL.revokeObjectURL(manifestURL);
-
-      const fwURL = URL.createObjectURL(file);
-      const chipFamily = document.getElementById('chip').value;
-      const offset = hexToNumber(document.getElementById('offset').value);
-
-      const manifest = {
-        name: "Local Firmware",
-        version: "direct",
-        builds: [{
-          chipFamily,
-          parts: [{ path: fwURL, offset }]
-        }]
-      };
-
-      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-      manifestURL = URL.createObjectURL(blob);
-
-      installBtn.setAttribute('manifest', manifestURL);
-      statusEl.textContent = `Sẵn sàng flash: ${file.name}`;
+    // --- MQTT s峄� ki峄噉 ---
+    client.on("connect", () => {
+      statusEl.textContent = "馃煝 膼茫 k岷縯 n峄慽 MQTT";
+      client.subscribe("esp8266/dht11/temp");
+      client.subscribe("esp8266/dht11/humi");
+      client.subscribe("esp8266/relay1/status");
     });
 
-    window.addEventListener('unload', () => {
-      if (manifestURL) URL.revokeObjectURL(manifestURL);
+    client.on("error", (err) => {
+      statusEl.textContent = "鉂� L峄梚 k岷縯 n峄慽: " + err;
     });
-  </script></body>
+
+    let latestTemp = null, latestHumi = null;
+
+    client.on("message", (topic, message) => {
+      const msg = message.toString();
+      if (topic === "esp8266/dht11/temp") {
+        tempEl.textContent = msg + "掳C";
+        latestTemp = parseFloat(msg);
+      }
+      if (topic === "esp8266/dht11/humi") {
+        humiEl.textContent = msg + "%";
+        latestHumi = parseFloat(msg);
+      }
+      if (topic === "esp8266/relay1/status") {
+        relayStatusEl.textContent = msg;
+      }
+
+      // Khi c贸 膽峄� temp + humi, th锚m v脿o chart
+      if (latestTemp !== null && latestHumi !== null) {
+        addData(latestTemp, latestHumi);
+        latestTemp = latestHumi = null; // reset 膽峄� 膽峄 c岷穚 m峄沬
+      }
+    });
+
+    // --- 膼i峄乽 khi峄僴 relay ---
+    document.getElementById("btnOn").addEventListener("click", () => {
+      client.publish("esp8266/relay1", "on");
+    });
+    document.getElementById("btnOff").addEventListener("click", () => {
+      client.publish("esp8266/relay1", "off");
+    });
+  </script>
+</body>
 </html>
