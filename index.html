@@ -83,8 +83,8 @@
     document.getElementById('btnDisconnect').onclick = async () => {
       try { if (device && device.gatt.connected) await device.gatt.disconnect(); } catch {}
     };
-    document.getElementById('btnUp').onclick = () => sendCmd('F');
-    document.getElementById('btnStop').onclick = () => sendCmd('F');
+    document.getElementById('btnUp').onclick = () => sendCmd('S');
+    document.getElementById('btnStop').onclick = () => sendCmd('U');
     document.getElementById('btnDown').onclick = () => sendCmd('D');
     document.getElementById('btnQuery').onclick = () => sendCmd('Q');
 
