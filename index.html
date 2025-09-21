@@ -1,98 +1,39 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Window Remote (BLE)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flash ESP32 trực tiếp trên web — Ly Ly</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
-    .row { display:flex; gap: 12px; margin-bottom: 12px; }
-    button { padding: 14px 18px; font-size: 18px; border-radius: 12px; border: 1px solid #ccc; }
-    #log { height: 180px; border: 1px solid #ddd; padding: 8px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#fafafa; }
-    .big { font-size: 22px; }
+    body{font-family:Arial,Helvetica,sans-serif;max-width:800px;margin:40px auto;padding:0 16px}
+    h1{font-size:22px;margin-bottom:12px}
+    .card{border:1px solid #e5e5e5;border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+    code{background:#f7f7f7;padding:2px 6px;border-radius:4px}
+    .note{font-size:13px;color:#555}
   </style>
+  <!-- Load ESP Web Tools web component -->
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
 <body>
-  <h1>ESP32 Window Remote</h1>
-  <p>Kết nối BLE theo chuẩn <b>Nordic UART</b>. Nút: LÊN, DỪNG, XUỐNG. Nhấn <i>Connect</i> và chọn <b>ESP32-Window</b>.</p>
-  <div class="row">
-    <button id="btnConnect" class="big">Connect</button>
-    <button id="btnDisconnect">Disconnect</button>
+  <h1>Flash ESP32 trực tiếp trên trình duyệt</h1>
+  <p class="note">
+    Dùng Chrome/Edge (máy tính), bật Bluetooth/Wi‑Fi nếu board cần, cắm USB. Nhấn nút bên dưới để chọn cổng và nạp.
+  </p>
+
+  <div class="card">
+    <h3>Nạp firmware ESP32 (chipFamily: ESP32)</h3>
+    <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+    <p class="note">
+      File <code>manifest.json</code> đã trỏ tới các file <code>.bin</code> trong thư mục cùng cấp. Hãy thay thế bằng bin của H.
+    </p>
   </div>
-  <div class="row">
-    <button id="btnUp" class="big">⬆️ LÊN</button>
-    <button id="btnStop" class="big">⏹️ DỪNG</button>
-    <button id="btnDown" class="big">⬇️ XUỐNG</button>
-    <button id="btnQuery">Trạng thái</button>
+
+  <div class="card">
+    <h3>Mẹo</h3>
+    <ul>
+      <li>Nếu ESP không tự vào download mode: giữ <b>BOOT</b>, nhấn <b>EN/RST</b>, thả <b>EN/RST</b>, sau đó thả <b>BOOT</b>.</li>
+      <li>Xem log bằng Serial (115200) nếu cần chẩn đoán.</li>
+    </ul>
   </div>
-  <div id="log"></div>
-
-  <script>
-    const NUS_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-    const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write
-    const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // notify
-
-    let device, server, service, rxChar, txChar;
-
-    function log(msg) {
-      const box = document.getElementById('log');
-      const time = new Date().toLocaleTimeString();
-      box.innerText += `[${time}] ${msg}\n`;
-      box.scrollTop = box.scrollHeight;
-    }
-
-    async function connect() {
-      try {
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'ESP32' }],
-          optionalServices: [NUS_SERVICE]
-        });
-        device.addEventListener('gattserverdisconnected', onDisconnected);
-
-        server = await device.gatt.connect();
-        service = await server.getPrimaryService(NUS_SERVICE);
-        rxChar = await service.getCharacteristic(NUS_RX);
-        txChar = await service.getCharacteristic(NUS_TX);
-        await txChar.startNotifications();
-        txChar.addEventListener('characteristicvaluechanged', handleNotify);
-        log('Connected');
-      } catch (e) {
-        log('Connect error: ' + e);
-      }
-    }
-
-    function onDisconnected() { log('Disconnected'); }
-
-    function handleNotify(event) {
-      const v = new TextDecoder().decode(event.target.value);
-      log('Status: ' + v);
-    }
-
-    async function sendCmd(cmd) {
-      if (!rxChar) { log('Chưa kết nối'); return; }
-      const data = new TextEncoder().encode(cmd);
-      try {
-        await rxChar.writeValue(data);
-        log('Sent: ' + cmd);
-      } catch (e) {
-        log('Send error: ' + e);
-      }
-    }
-
-    document.getElementById('btnConnect').onclick = connect;
-    document.getElementById('btnDisconnect').onclick = async () => {
-      try { if (device && device.gatt.connected) await device.gatt.disconnect(); } catch {}
-    };
-    document.getElementById('btnUp').onclick = () => sendCmd('S');
-    document.getElementById('btnStop').onclick = () => sendCmd('U');
-    document.getElementById('btnDown').onclick = () => sendCmd('D');
-    document.getElementById('btnQuery').onclick = () => sendCmd('Q');
-
-    if (!('bluetooth' in navigator)) {
-      log('Trình duyệt không hỗ trợ Web Bluetooth. Dùng Chrome/Edge trên Android.');
-    } else {
-      log('Web Bluetooth sẵn sàng. Nhấn Connect để bắt đầu.');
-    }
-  </script>
 </body>
 </html>
