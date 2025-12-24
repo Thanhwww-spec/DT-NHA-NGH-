@@ -1,39 +1,265 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Flash ESP32 trực tiếp trên web — Ly Ly</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;max-width:800px;margin:40px auto;padding:0 16px}
-    h1{font-size:22px;margin-bottom:12px}
-    .card{border:1px solid #e5e5e5;border-radius:12px;padding:16px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,.04)}
-    code{background:#f7f7f7;padding:2px 6px;border-radius:4px}
-    .note{font-size:13px;color:#555}
-  </style>
-  <!-- Load ESP Web Tools web component -->
-  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tra cứu mã lỗi – 3D</title>
+
+<style>
+:root{
+  --bg1:#070A12; --bg2:#0B1635;
+  --card:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.14);
+  --text:#EAF0FF; --muted:#9AA7C7;
+  --ok:#2BE4A7; --warn:#FFD166; --crit:#FF4D6D;
+  --radius:18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto;
+  color:var(--text);
+  background:
+    radial-gradient(900px 500px at 20% 10%, #182A66 0%, transparent 60%),
+    radial-gradient(900px 500px at 80% 20%, #3A1B7A 0%, transparent 60%),
+    linear-gradient(180deg,var(--bg2),var(--bg1));
+  min-height:100vh;
+  padding:16px;
+}
+.wrap{max-width:1100px;margin:auto}
+h1{margin:0 0 6px;font-size:20px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:12px}
+
+input{
+  width:100%;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid var(--line);
+  background:rgba(10,16,34,.6);
+  color:var(--text);
+  font-size:16px;
+  outline:none;
+  margin-bottom:14px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:14px;
+}
+@media(min-width:900px){
+  .grid{grid-template-columns: 1fr 1.2fr;}
+}
+
+.card3d{
+  position:relative;
+  border-radius:var(--radius);
+  border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));
+  box-shadow:0 25px 60px rgba(0,0,0,.45);
+  padding:16px;
+  transform-style:preserve-3d;
+}
+.card3d::before{
+  content:"";
+  position:absolute; inset:-2px;
+  background:radial-gradient(500px 300px at var(--mx,50%) var(--my,20%),
+    rgba(78,161,255,.25),rgba(124,92,255,.05) 55%,transparent 70%);
+  pointer-events:none;
+}
+.cardInner{position:relative;transform:translateZ(30px)}
+
+.codeList{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+  gap:10px;
+}
+.codeItem{
+  padding:12px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.04);
+  cursor:pointer;
+  transition:transform .12s ease,background .12s ease;
+}
+.codeItem:hover{background:rgba(255,255,255,.08)}
+.codeItem:active{transform:scale(.98)}
+.codeItem b{font-size:16px}
+.codeItem span{display:block;font-size:12px;color:var(--muted)}
+
+.codeBig{
+  font-size:36px;
+  font-weight:900;
+  letter-spacing:.8px;
+}
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.05);
+  font-size:12px;
+  margin:8px 0;
+}
+.dot{width:10px;height:10px;border-radius:50%}
+.dot.ok{background:var(--ok)}
+.dot.warn{background:var(--warn)}
+.dot.crit{background:var(--crit)}
+
+h3{margin:10px 0 6px;font-size:14px}
+ul{padding-left:18px;margin:0}
+li{margin:6px 0;font-size:13px;color:#D7E1FF}
+.hidden{display:none}
+</style>
 </head>
+
 <body>
-  <h1>Flash ESP32 trực tiếp trên trình duyệt</h1>
-  <p class="note">
-    Dùng Chrome/Edge (máy tính), bật Bluetooth/Wi‑Fi nếu board cần, cắm USB. Nhấn nút bên dưới để chọn cổng và nạp.
-  </p>
+<div class="wrap">
+  <h1>TRA CỨU MÃ LỖI</h1>
+  <div class="sub">Giao diện 3D hiện đại – danh sách hiển thị sẵn</div>
 
-  <div class="card">
-    <h3>Nạp firmware ESP32 (chipFamily: ESP32)</h3>
-    <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
-    <p class="note">
-      File <code>manifest.json</code> đã trỏ tới các file <code>.bin</code> trong thư mục cùng cấp. Hãy thay thế bằng bin của H.
-    </p>
-  </div>
+  <input id="search" placeholder="Nhập mã lỗi (VD: E05, E11, 01…)">
 
-  <div class="card">
-    <h3>Mẹo</h3>
-    <ul>
-      <li>Nếu ESP không tự vào download mode: giữ <b>BOOT</b>, nhấn <b>EN/RST</b>, thả <b>EN/RST</b>, sau đó thả <b>BOOT</b>.</li>
-      <li>Xem log bằng Serial (115200) nếu cần chẩn đoán.</li>
-    </ul>
+  <div class="grid">
+
+    <!-- DANH SÁCH -->
+    <div class="card3d" id="left">
+      <div class="cardInner">
+        <b>Danh sách mã lỗi</b>
+        <div class="codeList" id="list"></div>
+      </div>
+    </div>
+
+    <!-- CHI TIẾT -->
+    <div class="card3d hidden" id="right">
+      <div class="cardInner">
+        <div class="codeBig" id="dCode">—</div>
+        <div class="sub" id="dDesc"></div>
+
+        <div class="badge">
+          <span class="dot" id="dDot"></span>
+          <span id="dSev"></span>
+        </div>
+
+        <h3>Các mục thử nghiệm / kiểm tra</h3>
+        <ul id="dChecks"></ul>
+      </div>
+    </div>
+
   </div>
+</div>
+
+<script>
+const DB={
+ "01":{desc:"Điện áp quá thấp",sev:"warn",checks:[
+  "Kiểm tra điện áp pin quá thấp",
+  "Kiểm tra điện áp pin và điện áp bảo vệ",
+  "Kiểm tra dây cáp nguồn"
+ ]},
+ "E02":{desc:"Quạt bay mô tơ không chạy",sev:"warn",checks:[
+  "Kiểm tra tiếp xúc dây cáp",
+  "Kiểm tra đầu nối quạt",
+  "Thay quạt bay hơi"
+ ]},
+ "E03":{desc:"Không khởi động được máy",sev:"crit",checks:[
+  "Kiểm tra dây cáp",
+  "Kiểm tra cực dương/âm máy nén",
+  "Máy nén kẹt hoặc lỏng"
+ ]},
+ "E04":{desc:"Quạt bay hơi ngắn mạch",sev:"crit",checks:[
+  "Kiểm tra dây cáp",
+  "Kiểm tra đầu nối",
+  "Thay quạt bay hơi"
+ ]},
+ "E05":{desc:"Áp suất làm mát quá cao",sev:"warn",checks:[
+  "Thiếu quạt làm mát",
+  "Két tản nhiệt bẩn",
+  "Tốc độ quạt không đủ"
+ ]},
+ "E06":{desc:"Quạt làm mát bị mạch hở",sev:"warn",checks:[
+  "Đứt dây quạt",
+  "Giắc cắm lỏng",
+  "Thay quạt"
+ ]},
+ "E07":{desc:"Quạt làm mát bị ngắn mạch",sev:"crit",checks:[
+  "Chạm vỏ",
+  "Đo thông mạch",
+  "Thay quạt"
+ ]},
+ "E10":{desc:"Lỗi cảm biến nhiệt độ",sev:"warn",checks:[
+  "Cảm biến lỏng",
+  "Đứt dây tín hiệu",
+  "Thay cảm biến"
+ ]},
+ "E11":{desc:"Điện áp quá cao",sev:"crit",checks:[
+  "Pin hoặc sạc quá áp",
+  "Kiểm tra mạch bảo vệ",
+  "Kiểm tra quạt"
+ ]},
+ "E12":{desc:"Áp suất băng tải quá cao",sev:"warn",checks:[
+  "Tắc nghẽn dầu",
+  "Kiểm tra chất lỏng",
+  "Kiểm tra quạt gió"
+ ]},
+ "E13":{desc:"Lỗi quạt ngoài không chạy",sev:"warn",checks:[
+  "Kiểm tra động cơ quạt",
+  "Kiểm tra board điều khiển",
+  "Kiểm tra relay"
+ ]}
+};
+
+const list=document.getElementById("list");
+const right=document.getElementById("right");
+
+function renderList(f=""){
+ list.innerHTML="";
+ Object.keys(DB).forEach(c=>{
+  if(!c.includes(f)) return;
+  const d=DB[c];
+  const div=document.createElement("div");
+  div.className="codeItem";
+  div.innerHTML=`<b>${c}</b><span>${d.desc}</span>`;
+  div.onclick=()=>show(c);
+  list.appendChild(div);
+ });
+}
+
+function show(c){
+ const d=DB[c];
+ document.getElementById("dCode").innerText=c;
+ document.getElementById("dDesc").innerText=d.desc;
+ document.getElementById("dSev").innerText=
+   d.sev==="crit"?"Nghiêm trọng":d.sev==="warn"?"Cảnh báo":"Bình thường";
+ document.getElementById("dDot").className="dot "+d.sev;
+ const ul=document.getElementById("dChecks");
+ ul.innerHTML="";
+ d.checks.forEach(x=>{
+  const li=document.createElement("li");
+  li.innerText=x;
+  ul.appendChild(li);
+ });
+ right.classList.remove("hidden");
+}
+
+document.getElementById("search").addEventListener("input",e=>{
+ renderList(e.target.value.toUpperCase());
+});
+
+// 3D tilt nhẹ (WebView OK)
+["left","right"].forEach(id=>{
+ const card=document.getElementById(id);
+ card.addEventListener("pointermove",e=>{
+  const r=card.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width;
+  const y=(e.clientY-r.top)/r.height;
+  card.style.setProperty("--mx",(x*100)+"%");
+  card.style.setProperty("--my",(y*100)+"%");
+ });
+});
+
+renderList();
+</script>
 </body>
 </html>
